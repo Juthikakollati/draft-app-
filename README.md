@@ -1,1 +1,638 @@
-# draft-app-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Draft — Think Before You Prompt</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300;1,9..144,600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+
+:root{
+  --ink:#0b0b0f;
+  --paper:#f5f2ec;
+  --glass:rgba(245,242,236,0.05);
+  --glass-border:rgba(245,242,236,0.1);
+  --glass-hover:rgba(245,242,236,0.09);
+  --accent:#b8ff57;
+  --muted:rgba(245,242,236,0.38);
+  --warn:#ff8c42;
+  --radius:20px;
+  --radius-sm:12px;
+}
+
+html{scroll-behavior:smooth;}
+body{
+  background:var(--ink);
+  color:var(--paper);
+  font-family:'Fraunces',serif;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* noise */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:0;
+}
+
+/* mesh */
+.mesh{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  animation:meshShift 20s ease-in-out infinite alternate;
+}
+@keyframes meshShift{
+  0%{background:
+    radial-gradient(ellipse 60% 50% at 15% 20%, rgba(184,255,87,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 55% at 85% 80%, rgba(80,120,255,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 40% at 65% 25%, rgba(255,140,66,0.04) 0%, transparent 55%);}
+  100%{background:
+    radial-gradient(ellipse 55% 60% at 75% 75%, rgba(184,255,87,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 45% at 15% 65%, rgba(80,120,255,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 45% 50% at 50% 40%, rgba(255,140,66,0.05) 0%, transparent 55%);}
+}
+
+.page{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:0 24px 120px;}
+
+/* ── HERO ── */
+.hero{padding:90px 0 70px;text-align:center;}
+
+.hero-eyebrow{
+  font-family:'DM Mono',monospace;
+  font-size:0.66rem;letter-spacing:0.2em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:28px;
+  opacity:0;transform:translateY(16px);
+  animation:up 0.8s 0.1s forwards;
+}
+
+.hero-title{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(5rem,14vw,11rem);
+  line-height:0.9;letter-spacing:0.02em;
+  color:var(--paper);margin-bottom:30px;
+  opacity:0;transform:translateY(30px);
+  animation:up 0.9s 0.2s forwards;
+}
+.hero-title em{color:var(--accent);font-style:normal;}
+
+.hero-sub{
+  font-family:'Fraunces',serif;font-size:1.1rem;
+  font-weight:300;font-style:italic;
+  color:var(--muted);max-width:400px;
+  margin:0 auto;line-height:1.75;
+  opacity:0;transform:translateY(16px);
+  animation:up 0.9s 0.35s forwards;
+}
+
+/* ── PROGRESS BAR (loss aversion / progress illusion) ── */
+.progress-wrap{
+  opacity:0;transform:translateY(16px);
+  animation:up 0.8s 0.5s forwards;
+  margin-top:48px;
+}
+.progress-label{
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:'DM Mono',monospace;font-size:0.62rem;
+  letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:8px;
+}
+.progress-track{
+  height:3px;background:var(--glass-border);
+  border-radius:100px;overflow:hidden;
+}
+.progress-fill{
+  height:100%;background:var(--accent);
+  border-radius:100px;width:0%;
+  transition:width 0.9s cubic-bezier(.16,1,.3,1);
+  box-shadow:0 0 10px rgba(184,255,87,0.4);
+}
+
+@keyframes up{to{opacity:1;transform:translateY(0);}}
+
+/* ── REVEAL ── */
+.reveal{
+  opacity:0;transform:translateY(32px);
+  transition:opacity 0.75s cubic-bezier(.16,1,.3,1),transform 0.75s cubic-bezier(.16,1,.3,1);
+}
+.reveal.visible{opacity:1;transform:translateY(0);}
+.d1{transition-delay:0.08s;}.d2{transition-delay:0.16s;}.d3{transition-delay:0.24s;}
+
+/* ── GLASS CARD ── */
+.glass{
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  border-radius:var(--radius);
+  backdrop-filter:blur(24px);
+  -webkit-backdrop-filter:blur(24px);
+  transition:border-color 0.35s,background 0.35s,box-shadow 0.35s;
+}
+.glass:focus-within{
+  border-color:rgba(184,255,87,0.25);
+  background:rgba(184,255,87,0.03);
+  box-shadow:0 0 0 1px rgba(184,255,87,0.08);
+}
+
+/* ── SECTION LABEL ── */
+.sec-label{
+  font-family:'DM Mono',monospace;font-size:0.6rem;
+  letter-spacing:0.14em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:14px;
+  display:flex;align-items:center;gap:10px;
+}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--glass-border);}
+
+/* ── STEP HINT (progressive disclosure) ── */
+.step-hint{
+  font-family:'Fraunces',serif;font-weight:300;
+  font-style:italic;font-size:0.92rem;
+  color:rgba(245,242,236,0.28);
+  margin-bottom:14px;line-height:1.6;
+  transition:color 0.4s;
+}
+.glass:focus-within .step-hint{color:rgba(245,242,236,0.55);}
+
+/* ── TEXTAREA ── */
+textarea{
+  width:100%;background:transparent;
+  border:none;outline:none;
+  color:var(--paper);
+  font-family:'Fraunces',serif;font-weight:300;
+  font-size:1rem;line-height:1.85;resize:none;
+}
+textarea::placeholder{color:rgba(245,242,236,0.18);font-style:italic;}
+
+.card-body{padding:26px 28px;}
+.card-foot{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px 22px;
+  border-top:1px solid var(--glass-border);
+  flex-wrap:wrap;gap:10px;
+}
+
+/* ── BUTTONS ── */
+.btn{
+  font-family:'DM Mono',monospace;font-size:0.72rem;
+  font-weight:500;letter-spacing:0.06em;
+  padding:11px 24px;border-radius:100px;
+  border:none;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px;
+  transition:all 0.18s cubic-bezier(.16,1,.3,1);
+}
+.btn:active{transform:scale(0.95)!important;}
+
+.btn-primary{background:var(--accent);color:var(--ink);}
+.btn-primary:hover{background:#c8ff77;transform:translateY(-2px);box-shadow:0 8px 28px rgba(184,255,87,0.22);}
+.btn-primary:disabled{opacity:0.4;cursor:default;transform:none!important;box-shadow:none;}
+
+.btn-ghost{
+  background:transparent;color:var(--muted);
+  border:1px solid var(--glass-border);
+}
+.btn-ghost:hover{color:var(--paper);border-color:rgba(245,242,236,0.22);background:var(--glass-hover);}
+
+.btn-row{display:flex;gap:8px;align-items:center;}
+.meta{font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.04em;}
+
+/* ── ANCHOR SAVED ── */
+.anchor-saved{display:none;}
+.anchor-saved.on{display:block;animation:up 0.5s both;}
+.anchor-quote{
+  font-family:'Fraunces',serif;font-size:1.15rem;
+  font-style:italic;font-weight:300;color:var(--paper);
+  line-height:1.75;border-left:2px solid var(--accent);
+  padding-left:18px;margin-bottom:16px;
+}
+.dot-row{display:flex;align-items:center;gap:8px;}
+.anchor-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 0 3px rgba(184,255,87,0.18);
+  animation:dotPulse 2.5s ease-in-out infinite;
+}
+@keyframes dotPulse{
+  0%,100%{box-shadow:0 0 0 3px rgba(184,255,87,0.18);}
+  50%{box-shadow:0 0 0 7px rgba(184,255,87,0.06);}
+}
+
+/* ── DRIFT ── */
+.drift-banner{
+  display:none;border-radius:var(--radius-sm);
+  padding:14px 20px;margin-bottom:14px;
+  font-size:0.87rem;line-height:1.65;
+  backdrop-filter:blur(16px);
+}
+.drift-banner.on{display:block;animation:up 0.4s both;}
+.drift-warn{border:1px solid rgba(255,140,66,0.3);background:rgba(255,140,66,0.06);color:var(--warn);}
+.drift-ok{border:1px solid rgba(184,255,87,0.25);background:rgba(184,255,87,0.05);color:var(--accent);}
+
+/* ── REWARD OUTPUT (surprise & delight) ── */
+.output-card{display:none;margin-bottom:14px;}
+.output-card.on{display:block;animation:rewardReveal 0.6s cubic-bezier(.16,1,.3,1) both;}
+@keyframes rewardReveal{
+  from{opacity:0;transform:translateY(20px) scale(0.98);}
+  to{opacity:1;transform:translateY(0) scale(1);}
+}
+.output-glow{
+  border-color:rgba(184,255,87,0.3)!important;
+  background:rgba(184,255,87,0.04)!important;
+  box-shadow:0 0 40px rgba(184,255,87,0.08)!important;
+}
+.output-label{
+  font-family:'DM Mono',monospace;font-size:0.6rem;
+  letter-spacing:0.14em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:16px;
+  display:flex;align-items:center;gap:8px;
+}
+.output-label::before{
+  content:'';width:6px;height:6px;border-radius:50%;
+  background:var(--accent);box-shadow:0 0 8px var(--accent);
+}
+.output-text{
+  font-family:'Fraunces',serif;font-weight:300;
+  font-size:1.05rem;line-height:1.88;
+  color:var(--paper);white-space:pre-wrap;
+}
+
+/* ── HISTORY ── */
+.hist-empty{
+  font-family:'DM Mono',monospace;font-size:0.72rem;
+  color:rgba(245,242,236,0.14);text-align:center;
+  padding:32px 0;letter-spacing:0.05em;
+}
+.hist-item{
+  border:1px solid var(--glass-border);border-radius:var(--radius-sm);
+  padding:14px 18px;margin-bottom:10px;cursor:pointer;
+  display:flex;gap:14px;align-items:flex-start;
+  background:var(--glass);backdrop-filter:blur(12px);
+  transition:all 0.22s cubic-bezier(.16,1,.3,1);
+}
+.hist-item:hover{
+  border-color:rgba(184,255,87,0.22);
+  background:rgba(184,255,87,0.04);
+  transform:translateX(5px);
+}
+.hist-num{font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--accent);padding-top:3px;flex-shrink:0;}
+.hist-thought{font-size:0.9rem;font-weight:300;font-style:italic;color:var(--paper);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:4px;}
+.hist-time{font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--muted);}
+
+/* ── SPINNER ── */
+.spin{
+  display:inline-block;width:13px;height:13px;
+  border:2px solid rgba(11,11,15,0.25);border-top-color:var(--ink);
+  border-radius:50%;animation:rot 0.7s linear infinite;
+}
+@keyframes rot{to{transform:rotate(360deg);}}
+
+/* ── SOCIAL PROOF STRIP ── */
+.proof-strip{
+  display:flex;justify-content:center;gap:32px;
+  margin:48px 0 0;flex-wrap:wrap;
+  opacity:0;transform:translateY(16px);
+  animation:up 0.8s 0.6s forwards;
+}
+.proof-item{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.proof-num{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:1.8rem;color:var(--accent);
+  line-height:1;letter-spacing:0.04em;
+}
+.proof-label{
+  font-family:'DM Mono',monospace;font-size:0.6rem;
+  letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);
+}
+
+@media(max-width:580px){
+  .card-body,.card-foot{padding-left:18px;padding-right:18px;}
+  .hero-title{font-size:5rem;}
+  .proof-strip{gap:20px;}
+}
+</style>
+</head>
+<body>
+
+<div class="mesh"></div>
+
+<div class="page">
+
+  <!-- ── HERO ── -->
+  <div class="hero">
+    <div class="hero-eyebrow">Stop going blank. Start saying exactly what you mean.</div>
+    <h1 class="hero-title">Dr<em>a</em>ft</h1>
+    <p class="hero-sub">The thinking layer that sits before every AI conversation you have.</p>
+
+    <!-- Social proof — anchors perceived value immediately -->
+    <div class="proof-strip">
+      <div class="proof-item">
+        <div class="proof-num">3</div>
+        <div class="proof-label">Steps to clarity</div>
+      </div>
+      <div class="proof-item">
+        <div class="proof-num">0</div>
+        <div class="proof-label">Prompt rules to learn</div>
+      </div>
+      <div class="proof-item">
+        <div class="proof-num">∞</div>
+        <div class="proof-label">AI tools it works with</div>
+      </div>
+    </div>
+
+    <!-- Progress bar — loss aversion, progress illusion -->
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span>Your clarity progress</span>
+        <span id="progressPct">0% complete</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STEP 1: ANCHOR ── -->
+  <!-- Anchoring effect: first input shapes all decisions after -->
+  <div class="reveal d1" style="margin-bottom:14px;">
+    <div class="glass">
+      <div class="card-body">
+        <div class="sec-label">Step 1 of 3 — Lock your intent</div>
+
+        <!-- Progressive disclosure: hint text fades in on focus -->
+        <p class="step-hint">Before you type anything to an AI — what do you actually want? Don't think too hard. One messy sentence is enough.</p>
+
+        <div id="anchorIn">
+          <textarea id="anchorTxt" rows="2" placeholder="e.g. i want to write something for my boss but i dont know how to start..."></textarea>
+        </div>
+
+        <div id="anchorSaved" class="anchor-saved">
+          <div class="anchor-quote" id="anchorQuote"></div>
+          <div class="dot-row">
+            <div class="anchor-dot"></div>
+            <span class="meta">Your anchor is set — this is what we protect</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-foot">
+        <!-- Loss aversion CTA: "protect" not "save" -->
+        <span class="meta" id="anchorMeta">Your original thought — saved before the AI can change it</span>
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="anchorResetBtn" style="display:none" onclick="resetAnchor()">Change</button>
+          <button class="btn btn-ghost" id="driftBtn" style="display:none" onclick="checkDrift()">Am I drifting?</button>
+          <button class="btn btn-primary" id="anchorLockBtn" onclick="saveAnchor()">Protect my intent →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DRIFT BANNER ── -->
+  <div class="drift-banner" id="driftBanner"></div>
+
+  <!-- ── STEP 2: BRAIN DUMP ── -->
+  <!-- Cognitive load reduction: no rules, just free typing -->
+  <div class="reveal d2" style="margin-bottom:14px;">
+    <div class="glass">
+      <div class="card-body">
+        <div class="sec-label">Step 2 of 3 — Empty your head</div>
+        <p class="step-hint">No structure needed. No grammar. No pressure. Just get it out — every messy thought about what you're trying to do.</p>
+        <textarea id="dumpTxt" rows="7" placeholder="Just type. Stream of consciousness. What are you actually trying to say or do right now..."></textarea>
+      </div>
+      <div class="card-foot">
+        <span class="meta" id="wordCount">Start typing — anything goes</span>
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="clearDump()">Start over</button>
+          <!-- Outcome-focused CTA, not action-focused -->
+          <button class="btn btn-primary" id="buildBtn" onclick="buildPrompt()">Make it clear →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STEP 3: OUTPUT (reward) ── -->
+  <!-- Surprise & delight: reward reveal animation -->
+  <div class="output-card glass output-glow reveal" id="outputCard">
+    <div class="card-body">
+      <div class="output-label">Step 3 of 3 — Your prompt is ready</div>
+      <div class="output-text" id="outputTxt"></div>
+    </div>
+    <div class="card-foot">
+      <!-- Frictionless next action -->
+      <span class="meta">Paste this into Claude, ChatGPT, or any AI — it will work</span>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="copyPrompt()">Copy to clipboard</button>
+        <button class="btn btn-primary" onclick="saveHistory()">Save it →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── HISTORY ── -->
+  <div class="reveal d3">
+    <div class="glass" style="padding:26px 28px;">
+      <div class="sec-label">Your saved prompts</div>
+      <div id="histList">
+        <div class="hist-empty">Nothing saved yet — your prompts will appear here</div>
+      </div>
+    </div>
+  </div>
+
+  <p style="text-align:center;font-family:'DM Mono',monospace;font-size:0.58rem;color:rgba(245,242,236,0.1);letter-spacing:0.08em;margin-top:50px;">
+    Draft uses Claude AI &nbsp;·&nbsp; Your thoughts stay in your browser &nbsp;·&nbsp; No data stored
+  </p>
+
+</div>
+
+<script>
+/* ── SCROLL REVEAL ── */
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
+}, {threshold:0.1});
+document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+
+/* ── PROGRESS (loss aversion — shows how far they are, not how far to go) ── */
+let step = 0;
+function setProgress(s) {
+  step = s;
+  const pct = Math.round((s / 3) * 100);
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressPct').textContent = pct + '% complete';
+}
+
+/* ── WORD COUNT ── */
+const dumpTxt = document.getElementById('dumpTxt');
+dumpTxt.addEventListener('input', () => {
+  const w = dumpTxt.value.trim().split(/\s+/).filter(w=>w).length;
+  document.getElementById('wordCount').textContent = w === 0
+    ? 'Start typing — anything goes'
+    : w + (w===1?' word':' words') + ' — keep going';
+});
+
+/* ── ANCHOR ── */
+let anchor = '';
+let lastOutput = '';
+let sessionHistory = [];
+
+function saveAnchor() {
+  const v = document.getElementById('anchorTxt').value.trim();
+  if(!v) { shake('anchorTxt'); return; }
+  anchor = v;
+  document.getElementById('anchorQuote').textContent = '"' + anchor + '"';
+  document.getElementById('anchorIn').style.display = 'none';
+  document.getElementById('anchorSaved').classList.add('on');
+  document.getElementById('anchorLockBtn').style.display = 'none';
+  document.getElementById('anchorResetBtn').style.display = 'inline-flex';
+  document.getElementById('driftBtn').style.display = 'inline-flex';
+  document.getElementById('anchorMeta').textContent = 'Intent locked — drift check active';
+  setProgress(1);
+}
+
+function resetAnchor() {
+  anchor = '';
+  document.getElementById('anchorTxt').value = '';
+  document.getElementById('anchorIn').style.display = 'block';
+  document.getElementById('anchorSaved').classList.remove('on');
+  document.getElementById('anchorLockBtn').style.display = 'inline-flex';
+  document.getElementById('anchorResetBtn').style.display = 'none';
+  document.getElementById('driftBtn').style.display = 'none';
+  document.getElementById('anchorMeta').textContent = 'Your original thought — saved before the AI can change it';
+  document.getElementById('driftBanner').className = 'drift-banner';
+  setProgress(0);
+}
+
+function checkDrift() {
+  const dump = dumpTxt.value.trim();
+  const banner = document.getElementById('driftBanner');
+  if(!dump) {
+    banner.className = 'drift-banner drift-warn on';
+    banner.innerHTML = '<strong>Nothing in your brain dump yet.</strong> Type what you\'re currently thinking, then check if you\'ve drifted.';
+    return;
+  }
+  const aWords = anchor.toLowerCase().split(/\s+/).filter(w=>w.length>4);
+  const dWords = dump.toLowerCase().split(/\s+/);
+  const overlap = aWords.filter(w=>dWords.includes(w));
+  const drift = 1 - (overlap.length / Math.max(aWords.length, 1));
+
+  if(drift > 0.65) {
+    banner.className = 'drift-banner drift-warn on';
+    banner.innerHTML = `<strong>⚠ You're drifting.</strong> Your original intent was: <em>"${anchor}"</em> — your current thoughts have moved away from that. Pull back before you continue.`;
+  } else {
+    banner.className = 'drift-banner drift-ok on';
+    banner.innerHTML = `<strong>✓ You're still on track.</strong> Your brain dump matches your original intent. Go ahead and make it clear.`;
+  }
+}
+
+/* ── SHAKE (friction feedback) ── */
+function shake(id) {
+  const el = document.getElementById(id);
+  el.style.transition = 'transform 0.08s';
+  const steps = [6,-6,4,-4,2,-2,0];
+  let i = 0;
+  const go = () => {
+    if(i >= steps.length) { el.style.transform=''; return; }
+    el.style.transform = `translateX(${steps[i++]}px)`;
+    setTimeout(go, 50);
+  };
+  go();
+}
+
+/* ── BUILD PROMPT ── */
+async function buildPrompt() {
+  const dump = dumpTxt.value.trim();
+  if(!dump) { shake('dumpTxt'); return; }
+
+  const btn = document.getElementById('buildBtn');
+  btn.innerHTML = '<span class="spin"></span>Clarifying...';
+  btn.disabled = true;
+
+  const anchorCtx = anchor ? `The user's true intent (anchor): "${anchor}"\n\n` : '';
+  const sys = `You are a prompt engineering expert. Take the user's messy brain dump and transform it into a clear, specific, powerful prompt they can paste into any AI tool.
+
+Rules:
+- Preserve the user's exact intent — do not change what they want
+- Make it specific, structured, and immediately actionable
+- Output ONLY the final polished prompt. No explanation, no preamble, no labels.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        system:sys,
+        messages:[{role:'user',content:`${anchorCtx}My messy brain dump:\n\n${dump}\n\nMake it clear.`}]
+      })
+    });
+    const data = await res.json();
+    lastOutput = data.content?.[0]?.text || 'Something went wrong — try again.';
+
+    document.getElementById('outputTxt').textContent = lastOutput;
+    document.getElementById('outputCard').classList.add('on');
+    document.getElementById('outputCard').scrollIntoView({behavior:'smooth',block:'nearest'});
+    setProgress(3);
+
+  } catch(e) {
+    alert('Could not reach the AI. Check your connection.');
+  }
+
+  btn.innerHTML = 'Make it clear →';
+  btn.disabled = false;
+}
+
+/* ── COPY ── */
+function copyPrompt() {
+  navigator.clipboard.writeText(lastOutput).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = 'Copied ✓';
+    setTimeout(()=>{ btn.textContent = orig; }, 2000);
+  });
+}
+
+/* ── HISTORY ── */
+function saveHistory() {
+  if(!lastOutput) return;
+  sessionHistory.unshift({
+    thought:dumpTxt.value.trim(),
+    prompt:lastOutput,
+    time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})
+  });
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('histList');
+  if(!sessionHistory.length) {
+    list.innerHTML = '<div class="hist-empty">Nothing saved yet — your prompts will appear here</div>';
+    return;
+  }
+  list.innerHTML = sessionHistory.map((h,i) => `
+    <div class="hist-item" onclick="loadHistory(${i})">
+      <div class="hist-num">#${sessionHistory.length - i}</div>
+      <div style="flex:1">
+        <div class="hist-thought">${h.thought}</div>
+        <div class="hist-time">${h.time}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function loadHistory(i) {
+  dumpTxt.value = sessionHistory[i].thought;
+  lastOutput = sessionHistory[i].prompt;
+  document.getElementById('outputTxt').textContent = sessionHistory[i].prompt;
+  document.getElementById('outputCard').classList.add('on');
+  const w = dumpTxt.value.trim().split(/\s+/).filter(w=>w).length;
+  document.getElementById('wordCount').textContent = w + ' words';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function clearDump() {
+  dumpTxt.value = '';
+  document.getElementById('wordCount').textContent = 'Start typing — anything goes';
+  document.getElementById('outputCard').classList.remove('on');
+  document.getElementById('driftBanner').className = 'drift-banner';
+  if(step < 3) setProgress(step === 0 ? 0 : 1);
+}
+</script>
+</body>
+</html>
