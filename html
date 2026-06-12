@@ -552,18 +552,23 @@ Rules:
 - Output ONLY the final polished prompt. No explanation, no preamble, no labels.`;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':'Bearer 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'
+      },
       body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
+        model:'llama3-8b-8192',
         max_tokens:1000,
-        system:sys,
-        messages:[{role:'user',content:`${anchorCtx}My messy brain dump:\n\n${dump}\n\nMake it clear.`}]
+        messages:[
+          {role:'system',content:sys},
+          {role:'user',content:`${anchorCtx}My messy brain dump:\n\n${dump}\n\nMake it clear.`}
+        ]
       })
     });
     const data = await res.json();
-    lastOutput = data.content?.[0]?.text || 'Something went wrong — try again.';
+    lastOutput = data.choices?.[0]?.message?.content || 'Something went wrong — try again.';
 
     document.getElementById('outputTxt').textContent = lastOutput;
     document.getElementById('outputCard').classList.add('on');
