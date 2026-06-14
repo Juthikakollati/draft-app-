@@ -592,52 +592,6 @@ function copyPrompt() {
     setTimeout(()=>{ btn.textContent = orig; }, 2000);
   });
 }
-
-/* ── HISTORY ── */
-function saveHistory() {
-  if(!lastOutput) return;
-  sessionHistory.unshift({
-    thought:dumpTxt.value.trim(),
-    prompt:lastOutput,
-    time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})
-  });
-  renderHistory();
-}
-
-function renderHistory() {
-  const list = document.getElementById('histList');
-  if(!sessionHistory.length) {
-    list.innerHTML = '<div class="hist-empty">Nothing saved yet — your prompts will appear here</div>';
-    return;
-  }
-  list.innerHTML = sessionHistory.map((h,i) => `
-    <div class="hist-item" onclick="loadHistory(${i})">
-      <div class="hist-num">#${sessionHistory.length - i}</div>
-      <div style="flex:1">
-        <div class="hist-thought">${h.thought}</div>
-        <div class="hist-time">${h.time}</div>
-      </div>
-    </div>
-  `).join('');
-}
-
-function loadHistory(i) {
-  dumpTxt.value = sessionHistory[i].thought;
-  lastOutput = sessionHistory[i].prompt;
-  document.getElementById('outputTxt').textContent = sessionHistory[i].prompt;
-  document.getElementById('outputCard').classList.add('on');
-  const w = dumpTxt.value.trim().split(/\s+/).filter(w=>w).length;
-  document.getElementById('wordCount').textContent = w + ' words';
-  window.scrollTo({top:0,behavior:'smooth'});
-}
-
-function clearDump() {
-  dumpTxt.value = '';
-  document.getElementById('wordCount').textContent = 'Start typing — anything goes';
-  document.getElementById('outputCard').classList.remove('on');
-  document.getElementById('driftBanner').className = 'drift-banner';
-  if(step < 3) setProgress(step === 0 ? 0 : 1);
-}
 </script>
 </body>
 </html>
