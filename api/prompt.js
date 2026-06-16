@@ -1,7 +1,7 @@
 import requests
 
 # Define the API endpoint URL
-url = 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
+url = 'https://api.groq.com/openai/v1/chat/completions'
 
 try:
     # Make the HTTP GET call
