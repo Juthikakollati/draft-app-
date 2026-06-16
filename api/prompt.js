@@ -1,40 +1,21 @@
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+import requests
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
+# Define the API endpoint URL
+url = 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
 
-  try {
-    const { messages } = req.body;
+try:
+    # Make the HTTP GET call
+    response = requests.get(url)
+    
+    # Check if the server responded with a successful status code (200 OK)
+    if response.status_code == 200:
+        # Parse response body automatically as a Python dictionary
+        user_data = response.json()
+        print(f"User Name: {user_data['name']}")
+        print(f"User Email: {user_data['email']}")
+    else:
+        print(f"Server error: Status code {response.status_code}")
 
-    const groqMessages = [
-      {
-        role: 'system',
-        content: `You are a prompt engineering expert. Take the user's messy brain dump and transform it into a clear, specific, powerful prompt they can paste into any AI tool like Claude or ChatGPT. Preserve the user's exact intent. Output ONLY the final polished prompt. No explanation, no preamble, no labels.`
-      },
-      ...messages
-    ];
-
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'llama3-8b-8192',
-        max_tokens: 1000,
-        messages: groqMessages
-      })
-    });
-
-    const data = await response.json();
-    console.log('Groq response:', JSON.stringify(data));
-    return res.status(200).json(data);
-
-  } catch(e) {
-    console.error('Error:', e.message);
-    return res.status(500).json({ error: { message: e.message } });
-  }
-}
+except requests.exceptions.RequestException as e:
+    # Handle connection errors or timeouts
+    print(f"Network error: {e}")
